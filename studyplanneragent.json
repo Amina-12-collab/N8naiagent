@@ -1,0 +1,250 @@
+{
+  "name": "studyplanneragent",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ac330924-df34-4cec-8476-c3a210a33e42",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "63bc503b-955a-475d-9f22-ca10a3ed36a7",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "ac330924-df34-4cec-8476-c3a210a33e42"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "vncO16jE1X2QCxw7"
+        },
+        "limit": 1,
+        "orderBy": true
+      },
+      "id": "995ed12b-a362-4e63-9567-b76ecc89dd79",
+      "name": "Get PDF Text",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        224,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const b = ($('Webhook').first().json.body) || {};\nconst stored = $input.first() ? ($input.first().json || {}) : {};\nconst fromBody = (typeof b.pdfText === 'string') ? b.pdfText.trim() : '';\nconst fromStore = (typeof stored.pdf_text === 'string') ? stored.pdf_text.trim() : '';\nconst pdfText = fromBody || fromStore;\nconst request = String(b.question || b.prompt || b.message || b.request || '').trim();\nconst lower = request.toLowerCase();\nconst pick = function () { for (const v of arguments) { if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim(); } return ''; };\n\n// Subject\nlet subject = pick(b.subject, b.subjects);\nif (!subject) {\n  const m1 = request.match(/\\d+\\s*-?\\s*(?:day|week|month)s?\\s+([A-Za-z0-9+#.\\- ]+?)\\s+(?:study|learning)\\s+(?:plan|schedule)/i);\n  const m2 = request.match(/(?:study|learning)\\s+(?:plan|schedule)\\s+(?:for|on)\\s+(?:learning\\s+)?([^.,;\\n]+?)(?:\\s+(?:for|in|with|focus|at|i\\s+can)\\b|[.,;\\n]|$)/i);\n  const m3 = request.match(/(?:learn|study)\\s+([A-Za-z0-9+#.\\- ]+?)(?:\\s+(?:in|for|with|focus|at)\\b|[.,;\\n]|$)/i);\n  const m = m1 || m2 || m3;\n  if (m && m[1]) subject = m[1].replace(/^(a|an|the)\\s+/i, '').replace(/\\b(beginner|intermediate|advanced)\\b/ig, '').trim();\n}\nif (!subject || /^(a|an|the|my|me|plan|schedule|study|studying|learning|something|it|this|that)$/i.test(subject.trim())) subject = 'Python';\n\n// Duration in days\nlet days = parseInt(pick(b.days, b.duration), 10);\nif (!days) {\n  const d = request.match(/(\\d+)\\s*-?\\s*(day|week|month)s?/i);\n  if (d) {\n    const n = parseInt(d[1], 10);\n    const u = d[2].toLowerCase();\n    days = u === 'week' ? n * 7 : u === 'month' ? n * 30 : n;\n  }\n}\nif (!days || days < 1) days = 7;\nif (days > 60) days = 60;\n\n// Study time per day, in minutes\nlet minutes = 0;\nconst hp = pick(b.availableHours, b.studyHours, b.hoursPerDay);\nif (hp && parseFloat(hp) > 0) minutes = Math.round(parseFloat(hp) * 60);\nif (!minutes) {\n  const h = lower.match(/(\\d+(?:\\.\\d+)?)\\s*(?:hours?|hrs?|h)\\b/);\n  const mm = lower.match(/(\\d+)\\s*(?:minutes?|mins?)\\b/);\n  if (h) minutes = Math.round(parseFloat(h[1]) * 60);\n  else if (mm) minutes = parseInt(mm[1], 10);\n  else if (/an hour|one hour/.test(lower)) minutes = 60;\n}\nif (!minutes || minutes < 10) minutes = 60;\nconst timeText = minutes % 60 === 0 ? (minutes / 60) + ' hour' + (minutes === 60 ? '' : 's') : minutes + ' minutes';\n\n// Level\nlet level = pick(b.level, b.difficulty);\nif (!level) {\n  const l = lower.match(/\\b(beginner|intermediate|advanced)\\b/);\n  level = l ? l[1] : 'Beginner';\n}\nlevel = level.charAt(0).toUpperCase() + level.slice(1).toLowerCase();\n\nconst focus = pick(b.difficultTopics, b.focus);\n\nconst mentionsPdf = /\\b(pdf|uploaded|upload|document|file)\\b/i.test(request) || fromBody !== '';\nif (mentionsPdf) {\n  if (!pdfText) {\n    return [{ json: { valid: false, error: 'No PDF text is available. Please upload a PDF first, then ask for the study plan again.', prompt: '' } }];\n  }\n  const pdfPrompt = 'Use ONLY the PDF text below. Do not use outside knowledge.\\n\\nPDF TEXT:\\n' + pdfText +\n    '\\n\\nREQUIREMENTS:\\n- Duration: ' + days + ' days (write exactly ' + days + ' day sections, Day 1 to Day ' + days + ')\\n' +\n    '- Study time: ' + timeText + ' per day (' + minutes + ' minutes)\\n' +\n    (focus ? '- Focus topics: ' + focus + '\\n' : '') +\n    '\\nUSER REQUEST:\\n' + (request || 'Create a study plan from the uploaded PDF.');\n  return [{ json: { valid: true, usesPdf: true, error: '', prompt: pdfPrompt, days: days, minutesPerDay: minutes } }];\n}\n\n\nconst prompt = 'Create the complete study plan now using these final requirements:\\n' +\n  '- Subject: ' + subject + '\\n' +\n  '- Duration: ' + days + ' days (write exactly ' + days + ' day sections, Day 1 to Day ' + days + ')\\n' +\n  '- Study time: ' + timeText + ' per day (' + minutes + ' minutes)\\n' +\n  '- Level: ' + level + '\\n' +\n  (focus ? '- Focus topics: ' + focus + '\\n' : '') +\n  (request ? '\\nOriginal user request (honour any extra focus areas or preferences in it):\\n' + request : '');\n\nreturn [{ json: { valid: true, usesPdf: false, error: '', prompt: prompt, subject: subject, days: days, minutesPerDay: minutes, level: level } }];"
+      },
+      "id": "8547a0f8-3728-43ef-97c4-ae633d1a1e92",
+      "name": "Prepare Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "valid",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "856b91e5-c7f5-4de3-8807-b4f4d4baeb36",
+      "name": "Is Input Valid",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        672,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "options": {
+          "systemMessage": "You are a Study Planner Agent.\n\nAlways create the complete study plan immediately. Never ask follow-up questions, never ask for more details, and never reply with instructions on how to make a plan. The user's message already contains the final requirements (subject, duration, daily study time, level): use exactly those values.\n\nRules:\n- Write exactly the number of days requested, numbered Day 1 to Day N, in order. Never stop early or summarise remaining days.\n- Order topics logically from basic to advanced.\n- Each day's activities must fit within the daily study time. Show an estimated time for each day that does not exceed it.\n- For every day use this format:\n\n## Day N: <Topic>\n- **Estimated time:** <minutes/hours>\n- **Learning objectives:** 2-3 bullet points\n- **Concepts to study:** bullet list\n- **Practical task / exercise:** one concrete task\n- **Revision:** a short revision activity\n\nAfter all days, add:\n## Final Revision Strategy\n(a short step-by-step strategy)\n## Progress Checklist\n(a checklist with \"- [ ]\" items covering the main skills)\n\nIf the input contains a section marked PDF TEXT, build the plan strictly and only from that text. Never use outside knowledge, never add topics or facts that are not in the PDF text, and never ask the user to upload the PDF because it is already provided. Cover the important content of the PDF in a logical learning order across the requested days. For each day, use the format below but replace \"Concepts to study\" with \"Topics from the PDF\" and \"Important concepts\", and give practical tasks and revision activities that use only PDF content.\n\nUse clean Markdown. Output only the plan."
+        }
+      },
+      "id": "ce5b5fdf-5bd0-42b3-9600-136db282ab95",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        896,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-20b",
+        "options": {
+          "maxTokensToSample": 8000
+        }
+      },
+      "id": "98989d4d-edf2-490f-8bf2-b11f46c15e9c",
+      "name": "Groq Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        976,
+        224
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "92fseM3ToUvW6yKH",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"answer\": $json.output } }}",
+        "options": {}
+      },
+      "id": "c8597977-1c5e-4d28-b2c1-a43e511f6850",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1264,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": false, \"error\": $json.error, \"answer\": \"Error: \" + $json.error } }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "4e483ee3-5330-49e0-b897-7612256d3f59",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        960,
+        400
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get PDF Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get PDF Text": {
+      "main": [
+        [
+          {
+            "node": "Prepare Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Input": {
+      "main": [
+        [
+          {
+            "node": "Is Input Valid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Input Valid": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "db3027fa-5b24-4086-bfd1-61d759256655",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2972cbe5a7059a0edab3d551dbdd7e4eee33ace632899a54ca062ae4d119d969"
+  },
+  "nodeGroups": [],
+  "id": "biF7fysmY4ajl4vp",
+  "tags": []
+}

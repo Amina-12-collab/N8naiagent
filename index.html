@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI StudyMate</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <div class="app-container">
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <a href="#home" class="brand">
+                <div class="brand-icon" aria-hidden="true">
+                    <svg viewBox="0 0 40 40" focusable="false">
+                        <path d="M3 14 20 5l17 9-17 9L3 14Z" fill="currentColor"/>
+                        <path d="M9 18v9c6 5 16 5 22 0v-9L20 24 9 18Z" fill="currentColor" opacity=".72"/>
+                        <path d="M36 15v11" fill="none" stroke="currentColor" stroke-width="2"/>
+                        <circle cx="36" cy="28" r="2.5" fill="currentColor"/>
+                    </svg>
+                </div>
+                <span>AI StudyMate</span>
+            </a>
+
+            <div class="sidebar-navigation">
+                <p class="menu-label">WORKSPACE</p>
+                <a href="#home" class="nav-item active">
+                    <span>⌂</span> Home
+                </a>
+                <a href="#study-tools" class="nav-item" data-agent="planner">
+                    <span>▦</span> Study Planner
+                </a>
+                <a href="#study-tools" class="nav-item" data-agent="quiz">
+                    <span>☷</span> Quiz Agent
+                </a>
+                <a href="#study-tools" class="nav-item" data-agent="assessment">
+                    <span>◉</span> Assessment Agent
+                </a>
+                <a href="#study-tools" class="nav-item" data-agent="content">
+                    <span>▤</span> Content Agent
+                </a>
+                <a href="#ask-ai" class="nav-item" data-agent="pdfQA">
+                    <span>✧</span> PDF Q&amp;A
+                </a>
+                <a href="#upload" class="nav-item">
+                    <span>⇧</span> Upload PDF
+                </a>
+            </div>
+
+            <div class="sidebar-bottom">
+                <p class="version">AI StudyMate · Personal learning</p>
+            </div>
+        </aside>
+
+        <!-- Main dashboard -->
+        <main class="main-content" id="home">
+
+            <header class="topbar">
+                <div class="topbar-glow" aria-hidden="true"></div>
+                <div class="profile-avatar" role="img" aria-label="Student profile">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.3"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></svg>
+                </div>
+            </header>
+
+            <!-- Welcome section -->
+            <section class="welcome-section">
+                <div class="welcome-content">
+                    <span class="eyebrow">YOUR PERSONAL STUDY SPACE</span>
+                    <h1>Welcome to AI StudyMate</h1>
+                    <p>Upload your PDF and ask questions or choose an agent to get started.</p>
+                </div>
+
+                <div class="welcome-art" aria-hidden="true">
+                    <div class="orbit orbit-one"></div>
+                    <div class="orbit orbit-two"></div>
+                    <div class="art-glow"></div>
+                    <div class="book-card">
+                        <div class="book-symbol">✦</div>
+                        <div class="book-line"></div>
+                        <div class="book-line short"></div>
+                        <div class="book-line"></div>
+                        <div class="book-line medium"></div>
+                    </div>
+                    <div class="floating-icon icon-one">✧</div>
+                    <div class="floating-icon icon-two">✦</div>
+                    <div class="floating-icon icon-three">✎</div>
+                </div>
+            </section>
+
+            <!-- Upload materials -->
+            <section class="section" id="upload">
+                <div class="upload-card">
+                    <div class="upload-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" focusable="false">
+                            <path d="M12 16V5m0 0L8 9m4-4 4 4M5 16v2.5A2.5 2.5 0 0 0 7.5 21h9a2.5 2.5 0 0 0 2.5-2.5V16"/>
+                            <path d="M5.8 14.5a4.5 4.5 0 0 1 .9-8.9A6 6 0 0 1 18 7a4 4 0 0 1 .2 7.9"/>
+                        </svg>
+                    </div>
+
+                    <div class="upload-info">
+                        <h3>Upload PDF File</h3>
+                        <p>Choose your PDF file from your device.</p>
+                        <p id="file-status" class="file-status">
+                            No file selected
+                        </p>
+                        <p class="upload-support">Supported format: PDF</p>
+                    </div>
+
+                    <input
+                        type="file"
+                        id="study-file"
+                        accept=".pdf,.txt,.md,.doc,.docx"
+                        hidden
+                    >
+
+                    <label for="study-file" class="secondary-button">
+                        <span aria-hidden="true">↥</span> Choose File
+                    </label>
+                </div>
+            </section>
+
+            <!-- Question input -->
+            <section class="section" id="ask-ai">
+                <div class="chat-card">
+                    <div class="request-heading">
+                        <div class="request-icon" aria-hidden="true">▣</div>
+                        <div>
+                            <h2>Enter Your Question</h2>
+                            <p>Type your question or request here.</p>
+                        </div>
+                    </div>
+                    <form id="chat-form" class="chat-form">
+                        <textarea
+                            id="question"
+                            placeholder="e.g. Create a quiz from this PDF..."
+                            autocomplete="off"
+                            rows="3"
+                            required
+                        ></textarea>
+                    </form>
+                    <div class="question-meta"><span>Enter a clear request for better results.</span><span id="question-count">0/500</span></div>
+                </div>
+            </section>
+
+            <!-- Study tools -->
+            <section class="section" id="study-tools">
+                <div class="section-heading">
+                    <div>
+                        <h2><span class="heading-spark" aria-hidden="true">✦</span> Choose an Agent</h2>
+                        <p>Select a tool for your request.</p>
+                    </div>
+                </div>
+
+                <div class="tools-grid">
+                    <button class="tool-card quiz-card" data-agent="quiz">
+                        <div class="tool-icon teal">☷</div>
+                        <span class="tool-tag">AGENT 02</span>
+                        <h3>Quiz Agent</h3>
+                        <p>Generate MCQs, practice questions and viva questions.</p>
+                        <span class="tool-link">Practice questions <span>→</span></span>
+                    </button>
+
+                    <button class="tool-card assessment-card" data-agent="assessment">
+                        <div class="tool-icon orange">◉</div>
+                        <span class="tool-tag">AGENT 03</span>
+                        <h3>Assessment Agent</h3>
+                        <p>Evaluate your answers, calculate scores and get feedback.</p>
+                        <span class="tool-link">Assess answers <span>→</span></span>
+                    </button>
+
+                    <button class="tool-card planner-card" data-agent="planner">
+                        <div class="tool-icon blue">▦</div>
+                        <span class="tool-tag">AGENT 04</span>
+                        <h3>Study Planner</h3>
+                        <p>Create study plans and organize your revision time.</p>
+                        <span class="tool-link">Plan your study <span>→</span></span>
+                    </button>
+
+                    <button class="tool-card content-card" data-agent="content">
+                        <div class="tool-icon purple">▤</div>
+                        <span class="tool-tag">AGENT 01</span>
+                        <h3>Content Agent</h3>
+                        <p>Create short notes, summarize PDFs and understand difficult topics.</p>
+                        <span class="tool-link">Explore content <span>→</span></span>
+                    </button>
+
+                </div>
+
+                <button type="submit" form="chat-form" id="send-button" class="generate-button">
+                    <span aria-hidden="true">✦</span> Generate <span aria-hidden="true">→</span>
+                </button>
+
+                <div class="chat-card response-card" hidden>
+                    <div class="chat-messages" id="chat-messages">
+                    </div>
+                </div>
+            </section>
+
+            <footer class="footer">
+                <span>✦ AI StudyMate</span>
+                <span>Learn · Practice · Improve</span>
+            </footer>
+
+        </main>
+    </div>
+
+    <!-- Markdown parser and HTML sanitizer for assistant responses. -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@18.1.0/lib/marked.umd.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.4.17/dist/purify.min.js" defer></script>
+    <script src="script.js" defer></script>
+</body>
+</html>

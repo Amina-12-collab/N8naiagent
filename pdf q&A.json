@@ -1,0 +1,123 @@
+{
+  "name": "pdf q&A",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cc623e67-58f9-4149-8ab9-601b7d997c6a",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "abc92de2-3738-4d81-a18a-7334cf84117c",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "cc623e67-58f9-4149-8ab9-601b7d997c6a"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{\n  \"You are a PDF Study Assistant. Answer the user's question using the provided PDF text only. If the answer is not in the PDF, say so clearly.\\n\\nPDF TEXT:\\n\"\n  + ($json.body?.pdfText || $json.pdfText || \"\")\n  + \"\\n\\nUSER QUESTION:\\n\"\n  + ($json.body?.question || $json.question || \"\")\n}}",
+        "options": {
+          "systemMessage": "You are a PDF Study Assistant.\n\nAnswer the user's question using only the text extracted from their uploaded PDF.\n\n- Give clear, beginner-friendly answers.\n- Explain technical topics with simple examples when possible.\n- If the answer is not available in the PDF text, clearly say that the information is not available in the uploaded PDF.\n- Do not invent information."
+        }
+      },
+      "id": "941ce4d5-987e-4e79-b369-fd2926eae6c6",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-20b",
+        "options": {}
+      },
+      "id": "18d6afdd-93e2-4202-8b0e-f85b6f3a0e03",
+      "name": "Groq Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        96,
+        208
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "92fseM3ToUvW6yKH",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"answer\": $json.output } }}",
+        "options": {}
+      },
+      "id": "ab40495f-0178-4c06-9938-22ac31f9c808",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        592,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "bc9e3c9e-2e2c-4f6c-bb1d-7d436581a49e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2972cbe5a7059a0edab3d551dbdd7e4eee33ace632899a54ca062ae4d119d969"
+  },
+  "nodeGroups": [],
+  "id": "lUjLMwZJLAwHm81Q",
+  "tags": []
+}

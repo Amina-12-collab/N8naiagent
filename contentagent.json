@@ -1,0 +1,250 @@
+{
+  "name": "contentagent",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "7d9ee2ea-c8ef-4a3d-a12b-1a73fbb1e68e",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "7d68c59d-4666-4114-b35a-fdf50063fd95",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "7d9ee2ea-c8ef-4a3d-a12b-1a73fbb1e68e"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "vncO16jE1X2QCxw7"
+        },
+        "limit": 1,
+        "orderBy": true
+      },
+      "id": "b2cbde1d-91ac-4e06-ad93-4fa12f14f098",
+      "name": "Get PDF Text",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        224,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = ($('Webhook').first().json.body) || {};\nconst question = String(body.question || body.prompt || body.message || '').trim();\nif (!question) {\n  return [{ json: { valid: false, error: 'Missing required field: question', prompt: '' } }];\n}\nconst stored = $input.first() ? ($input.first().json || {}) : {};\nconst fromBody = (typeof body.pdfText === 'string') ? body.pdfText.trim() : '';\nconst fromStore = (typeof stored.pdf_text === 'string') ? stored.pdf_text.trim() : '';\nconst pdfText = fromBody || fromStore;\nconst mentionsPdf = /\\b(pdf|uploaded|upload|document|file)\\b/i.test(question) || fromBody !== '';\nif (mentionsPdf) {\n  if (!pdfText) {\n    return [{ json: { valid: false, error: 'No PDF text is available. Please upload a PDF first, then ask for the content again.', prompt: '' } }];\n  }\n  const prompt = 'Use ONLY the PDF text below. Do not use outside knowledge.\\n\\nPDF TEXT:\\n' + pdfText + '\\n\\nREQUEST:\\n' + question;\n  return [{ json: { valid: true, usesPdf: true, error: '', prompt } }];\n}\nreturn [{ json: { valid: true, usesPdf: false, error: '', prompt: question } }];"
+      },
+      "id": "1da63953-9813-45e2-907f-e1b3b52971fb",
+      "name": "Prepare Content Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "valid",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "2a07c0a7-6325-4124-a1df-e564382cde72",
+      "name": "Is Content Input Valid",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        672,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "options": {
+          "systemMessage": "You are the Content Agent for AI StudyMate.\n\nYour responsibilities are:\n1. Create short and clear study notes.\n2. Summarize study materials.\n3. Explain topics in simple beginner-friendly language.\n4. Explain difficult concepts step by step.\n5. Answer study-related questions accurately.\n\nUse the question and any provided study material as context.\nOrganize answers with headings and bullet points when useful.\nDo not invent information from an uploaded document.\nIf the user has not provided enough information, ask for the topic or material.\nRESPONSE QUALITY AND FORMATTING STANDARD\n\nYou must generate detailed, professional, beginner-friendly educational responses using the following formatting standards.\n\n1. TITLE AND STRUCTURE\n- Start with a clear title using a Markdown H1 heading.\n- Separate major sections using Markdown horizontal rules where appropriate.\n- Use numbered H2 headings for main sections.\n- Use H3 headings for subsections.\n- Keep the content logically ordered from basic concepts to advanced details.\n\n2. EXPLANATION\n- Explain the definition and purpose first.\n- Use simple, clear English suitable for beginners.\n- Use bullet points for lists and numbered lists for procedures.\n- Highlight important keywords using bold text.\n- Use italic text sparingly for emphasis.\n- Avoid unnecessarily long paragraphs and repeated information.\n\n3. TABLES\n- Use Markdown tables for comparisons, line-by-line explanations,\n  benefits, mistakes, and other information that is easier to compare.\n- Include clear column headings.\n- Keep table content concise and readable.\n- Do not put an entire response inside one table.\n\n4. CODE EXAMPLES\n- Always use fenced Markdown code blocks with the correct language label.\n- For Python, use ```python.\n- Maintain correct indentation and syntax.\n- Use meaningful variable and function names.\n- Prefer simple examples before complex examples.\n- Explain important lines step by step.\n- Show program output in a separate ```text code block.\n- Ensure the output matches the example code.\n- Never mix code and output in the same code block.\n\n5. PROGRAMMING TOPIC TEMPLATE\nWhen explaining a programming concept, use these sections when relevant:\n\n# [Topic Name] – Beginner-Friendly Guide\n\n## 1. What Is [Topic]?\n- Definition\n- Purpose\n\n## 2. Why Use It?\n- Benefits\n- Practical examples\n\n## 3. Syntax\n- Correct syntax in a code block\n- Explanation of each important part\n\n## 4. Simple Code Example\n- Working example\n- Line-by-line explanation table\n- Expected output\n\n## 5. Common Mistakes and How to Avoid Them\n- Use a Markdown table with Mistake, Why It Happens, and Fix.\n\n## 6. Practice Questions\n- Provide 3–5 relevant questions.\n- Progress from easy to moderate.\n- Do not provide solutions unless requested.\n\n## Bonus: Quick Checklist\n- Summarize the most important points using a short checklist.\n\n6. OTHER EDUCATIONAL TOPICS\nAdapt the structure to the subject. Do not force programming sections onto non-programming topics.\nFor theory topics, include definitions, key concepts, examples, comparisons, and a summary where relevant.\n\n7. FINAL QUALITY CHECK\nBefore responding, verify that:\n- Headings follow a consistent hierarchy.\n- Markdown tables are valid and properly aligned.\n- Code indentation and syntax are correct.\n- Output matches the code.\n- Lists are consistently formatted.\n- There are no broken Markdown fences.\n- There is no unnecessary repetition or excessive decoration.\n- The answer is factually correct and appropriate for a beginner.\n\nReturn clean Markdown only. Do not return HTML tags,\nJSON, or a single unformatted paragraph.\nDo not claim code was executed unless it actually was.\n\nPDF MODE\nIf the input contains a section marked PDF TEXT, you MUST generate everything strictly and only from that text. Never use outside knowledge, never add facts that are not in the PDF text, and never ask the user to upload or provide the PDF because it is already provided. Use the REQUEST to decide the format, level of detail and learning objectives. If the request does not specify a format, produce beginner-friendly learning content with: a suitable title, clear headings and subheadings, detailed explanations of the important topics in the PDF, simple examples taken from the PDF where applicable, step-by-step explanations where useful, and a short summary of the key concepts. Cover all the important topics of the PDF. Return complete Markdown and never output the word undefined."
+        }
+      },
+      "id": "ebb9bf56-44d3-40cf-86ea-ebfa1449785f",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        896,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-20b",
+        "options": {
+          "maxTokensToSample": 8000
+        }
+      },
+      "id": "5e3141c2-2b51-4f4c-9708-2b493f45a8dc",
+      "name": "Groq Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        976,
+        224
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "92fseM3ToUvW6yKH",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"answer\": $json.output } }}",
+        "options": {}
+      },
+      "id": "4c00b78f-5465-438f-b16f-fd2b22d98c45",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1264,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": false, \"error\": $json.error, \"answer\": \"Error: \" + $json.error } }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "fde5f938-3d52-4f7f-a7d5-b60b3c38a06b",
+      "name": "Respond Content Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        960,
+        352
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get PDF Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get PDF Text": {
+      "main": [
+        [
+          {
+            "node": "Prepare Content Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Content Input": {
+      "main": [
+        [
+          {
+            "node": "Is Content Input Valid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Content Input Valid": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Content Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "739196dd-7329-47bb-8be9-1bbf3b1f67a8",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2972cbe5a7059a0edab3d551dbdd7e4eee33ace632899a54ca062ae4d119d969"
+  },
+  "nodeGroups": [],
+  "id": "N6AuFO5nYTitettG",
+  "tags": []
+}

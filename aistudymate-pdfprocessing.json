@@ -1,0 +1,171 @@
+{
+  "name": "aistudymate-pdfprocessing",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "95245296-f3a1-418c-809e-15ff3747a5b9",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "9cb67a9e-755a-46c1-abcf-3180f3757a33",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "95245296-f3a1-418c-809e-15ff3747a5b9"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const binary = $input.item.binary || {};\nconst keys = Object.keys(binary);\nif (keys.length === 0) {\n  throw new Error('No file received. Send the PDF as multipart/form-data.');\n}\nreturn { json: $input.item.json, binary: { data: binary[keys[0]] } };"
+      },
+      "id": "94011d5b-0f07-4389-9eb8-a686e4ac7fd9",
+      "name": "Normalize Binary Field",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      },
+      "id": "695235c8-a6e8-4143-8e3c-59f3e83e7f7e",
+      "name": "Extract from File",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.2,
+      "position": [
+        448,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "vncO16jE1X2QCxw7"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "pdf_text": "={{ $json.text }}",
+            "num_pages": "={{ $json.numpages }}"
+          },
+          "schema": [
+            {
+              "id": "pdf_text",
+              "displayName": "pdf_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "num_pages",
+              "displayName": "num_pages",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "192d3e2a-472b-4e91-aaf4-c889cc1bf668",
+      "name": "Save PDF Text",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        672,
+        0
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  \"pdfText\": $(\"Extract from File\").item.json.text\n} }}",
+        "options": {}
+      },
+      "id": "ab80ef0e-8168-4607-bccd-dadc6745f8ac",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        896,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Binary Field",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Binary Field": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Save PDF Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save PDF Text": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "1b03486c-3c22-46bc-b82c-a2d9ce584490",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2972cbe5a7059a0edab3d551dbdd7e4eee33ace632899a54ca062ae4d119d969"
+  },
+  "nodeGroups": [],
+  "id": "aHrKGWsWULNwxotE",
+  "tags": []
+}

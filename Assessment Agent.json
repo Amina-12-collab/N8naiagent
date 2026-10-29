@@ -1,0 +1,272 @@
+{
+  "name": "Assessment Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "98f6a457-fba8-43f0-a20e-645e8bea868c",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "5172def2-67c5-40a8-9667-c613d36e89b8",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "98f6a457-fba8-43f0-a20e-645e8bea868c"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "vncO16jE1X2QCxw7"
+        },
+        "limit": 1,
+        "orderBy": true
+      },
+      "id": "ace0586d-8e01-4a84-8de6-8d67aa441e5e",
+      "name": "Get PDF Text",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        224,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const web = $('Webhook').first().json || {};\nconst b = (web.body && typeof web.body === 'object') ? web.body : web;\nconst pick = (...keys) => {\n  for (const k of keys) {\n    const v = b[k];\n    if (v !== undefined && v !== null && String(v).trim() !== '') return v;\n  }\n  return undefined;\n};\nconst question = pick('question', 'prompt', 'message', 'query', 'chatInput', 'input');\nconst expectedAnswer = pick('expectedAnswer', 'expected_answer', 'correctAnswer', 'modelAnswer');\nconst studentAnswer = pick('userAnswer', 'studentAnswer', 'student_answer', 'answer');\nconst totalRaw = pick('totalMarks', 'total_marks', 'maxMarks');\nconst stored = $input.first() ? ($input.first().json || {}) : {};\nconst fromBody = (typeof b.pdfText === 'string') ? b.pdfText.trim() : '';\nconst fromStore = (typeof stored.pdf_text === 'string') ? stored.pdf_text.trim() : '';\nconst pdfText = (fromBody || fromStore).slice(0, 20000);\nconst out = { valid: true, mode: 'generate', question, expectedAnswer, studentAnswer, totalMarks: undefined, error: '', prompt: '', usesPdf: false };\nconst gradingFields = { expectedAnswer, studentAnswer, totalMarks: totalRaw };\nconst present = Object.keys(gradingFields).filter((k) => gradingFields[k] !== undefined);\nif (question === undefined) {\n  out.valid = false;\n  out.error = 'Missing required field: question';\n} else if (present.length === 0) {\n  const q = String(question);\n  const mentionsPdf = /\\b(pdf|uploaded|upload|document|file)\\b/i.test(q) || fromBody !== '';\n  if (!mentionsPdf) {\n    out.mode = 'generate';\n    out.prompt = 'MODE: GENERATE\\nUser request: ' + q;\n  } else if (!pdfText) {\n    out.valid = false;\n    out.error = 'No PDF text is available. Please upload a PDF first, then ask for the assessment again.';\n  } else {\n    out.mode = 'pdf_assessment';\n    out.usesPdf = true;\n    let n = 5;\n    const m = q.match(/(\\d{1,2})\\s*(?:[a-z-]+\\s+){0,3}(?:questions?|mcqs?|qs?)\\b/i) || q.match(/\\b(\\d{1,2})\\b/);\n    if (m) {\n      const parsed = parseInt(m[1], 10);\n      if (parsed >= 1) n = Math.min(parsed, 20);\n    }\n    let answers = [];\n    const sa = b.studentAnswers;\n    if (Array.isArray(sa)) {\n      answers = sa.map((x) => (x && typeof x === 'object') ? String(x.answer !== undefined ? x.answer : (x.studentAnswer !== undefined ? x.studentAnswer : '')) : String(x === null || x === undefined ? '' : x));\n    } else if (sa && typeof sa === 'object') {\n      answers = Object.keys(sa).sort((x, y) => Number(x) - Number(y)).map((k) => String(sa[k]));\n    }\n    answers = answers.map((x) => x.trim());\n    const hasAnswers = answers.some((x) => x !== '');\n    out.numQuestions = n;\n    out.studentAnswers = answers;\n    out.hasStudentAnswers = hasAnswers;\n    out.prompt = 'MODE: PDF_ASSESSMENT\\n'\n      + 'Use ONLY the PDF text below. Do not use outside knowledge.\\n\\nPDF TEXT:\\n' + pdfText + '\\n\\n'\n      + 'REQUEST: ' + q + '\\n\\n'\n      + 'Create exactly ' + n + ' assessment questions from the PDF text. '\n      + 'For each give: question, expected_answer (taken from the PDF), marks (integer 1 to 5 based on depth), student_answer, marks_awarded, feedback.\\n'\n      + (hasAnswers\n        ? 'Student answers by question number (empty means not answered): ' + JSON.stringify(answers) + '\\nCopy each into student_answer, then grade it against expected_answer: marks_awarded is an integer from 0 to marks, and feedback is one short sentence.'\n        : 'No student answers were provided: set student_answer to \"\", marks_awarded to null and feedback to \"\".')\n      + '\\nReturn ONLY valid JSON, no markdown, in this shape: {\"questions\":[{\"question\":\"\",\"expected_answer\":\"\",\"marks\":1,\"student_answer\":\"\",\"marks_awarded\":null,\"feedback\":\"\"}]}';\n  }\n} else {\n  out.mode = 'grade';\n  const missing = Object.keys(gradingFields).filter((k) => gradingFields[k] === undefined);\n  const total = Number(totalRaw);\n  if (missing.length > 0) {\n    out.valid = false;\n    out.error = 'Missing required grading field(s): ' + missing.join(', ');\n  } else if (!isFinite(total) || total <= 0) {\n    out.valid = false;\n    out.error = 'totalMarks must be a positive number, received: ' + String(totalRaw);\n  } else {\n    out.totalMarks = total;\n    out.prompt = 'MODE: GRADE\\nQuestion: ' + String(question) + '\\nExpected Answer: ' + String(expectedAnswer) + '\\nStudent Answer: ' + String(studentAnswer) + '\\nTotal Marks: ' + total;\n  }\n}\nreturn [{ json: out }];"
+      },
+      "id": "e378e9d8-b3b7-4ca6-9998-cf058291abb5",
+      "name": "Prepare Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "valid",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7f8b4052-a03c-419c-977e-7ce973e8ada5",
+      "name": "Is Input Valid",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        672,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "options": {
+          "systemMessage": "You are the Assessment Agent for AI StudyMate.\n\nYour task is to evaluate a student's answer fairly.\n\nFollow these steps:\n\n1. Understand the original question.\n2. Compare the student's answer with the expected answer.\n3. Identify correct points and missing or incorrect points.\n4. Award marks based on the correctness of the answer.\n5. Never award more than the total marks.\n6. Explain why the answer is correct or incorrect.\n7. Suggest specific improvements.\n8. Identify knowledge gaps when possible.\n\nBe supportive and beginner-friendly.\nAccept answers with different wording when their meaning is correct.\nDo not expect the student to reproduce the expected answer word for word.\nDo not invent facts or marking criteria.\nIf the input says MODE: GRADE, grade the student's answer using only the question, expected answer, student answer and total marks provided.\n\nIf the input says MODE: PDF_ASSESSMENT, create the assessment strictly and only from the PDF TEXT provided. Never use outside knowledge, never ask the user to upload the PDF (it is already provided), and return only the JSON requested in the input.\n\nIf the input says MODE: GENERATE, the user is asking you to create an assessment (questions with marks and a total). Do that directly; do not ask for a student answer.\n\nReturn the result in this structure:\n\nScore: marks_awarded / total_marks\n\nFeedback:\nA clear explanation of the evaluation.\n\nCorrect Points:\nThe parts the student understood correctly.\n\nMissing or Incorrect Points:\nThe parts that need improvement.\n\nImprovement Suggestion:\nSpecific advice for the student."
+        }
+      },
+      "id": "d87e8f31-5658-48f1-a85d-e10d9723879e",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        896,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-20b",
+        "options": {}
+      },
+      "id": "33cc7e03-4bbd-45a8-8bd1-0cf4e3281fc2",
+      "name": "Groq Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        976,
+        224
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "92fseM3ToUvW6yKH",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const prep = $('Prepare Input').first().json;\nconst raw = $input.first().json.output;\nconst text = (typeof raw === 'string') ? raw : JSON.stringify(raw === undefined ? '' : raw);\nif (!text || text.trim() === '') {\n  return [{ json: { success: false, error: 'The AI model returned an empty response', mode: prep.mode, question: prep.question } }];\n}\nif (prep.mode === 'pdf_assessment') {\n  let data = null;\n  try {\n    const cleaned = text.replace(/```json|```/gi, '');\n    const s = cleaned.indexOf('{');\n    const e = cleaned.lastIndexOf('}');\n    data = JSON.parse(cleaned.slice(s, e + 1));\n  } catch (err) {\n    data = null;\n  }\n  const list = data && Array.isArray(data.questions) ? data.questions : [];\n  const items = [];\n  list.forEach((q) => {\n    const qt = q && q.question ? String(q.question).trim() : '';\n    const ea = q && q.expected_answer ? String(q.expected_answer).trim() : '';\n    if (!qt || !ea) return;\n    let marks = Number(q.marks);\n    if (!isFinite(marks) || marks <= 0) marks = 1;\n    const idx = items.length;\n    const given = (prep.studentAnswers && prep.studentAnswers[idx]) ? String(prep.studentAnswers[idx]) : '';\n    let awarded = null;\n    if (prep.hasStudentAnswers) {\n      awarded = Number(q.marks_awarded);\n      if (!isFinite(awarded) || awarded < 0) awarded = 0;\n      if (awarded > marks) awarded = marks;\n      if (given === '') awarded = 0;\n    }\n    items.push({ number: idx + 1, question: qt, expectedAnswer: ea, studentAnswer: given, marks, marksAwarded: awarded, feedback: (prep.hasStudentAnswers && q.feedback) ? String(q.feedback) : '' });\n  });\n  if (items.length === 0) {\n    return [{ json: { success: false, error: 'Could not generate assessment questions from the PDF text. Please try again.', mode: prep.mode, question: prep.question } }];\n  }\n  const totalMarks = items.reduce((a, x) => a + x.marks, 0);\n  const finalScore = prep.hasStudentAnswers ? items.reduce((a, x) => a + (x.marksAwarded || 0), 0) : null;\n  let lines = [];\n  items.forEach((x) => {\n    lines.push('Q' + x.number + '. ' + x.question + ' [' + x.marks + ' mark' + (x.marks === 1 ? '' : 's') + ']');\n    lines.push('Expected answer: ' + x.expectedAnswer);\n    lines.push('Student answer: ' + (x.studentAnswer === '' ? '(not provided)' : x.studentAnswer));\n    if (prep.hasStudentAnswers) lines.push('Marks awarded: ' + x.marksAwarded + ' / ' + x.marks + (x.feedback ? ' - ' + x.feedback : ''));\n    lines.push('');\n  });\n  lines.push('Total marks: ' + totalMarks);\n  if (finalScore !== null) lines.push('Final score: ' + finalScore + ' / ' + totalMarks);\n  const readable = lines.join('\\n');\n  return [{ json: { success: true, mode: prep.mode, question: prep.question, totalQuestions: items.length, totalMarks, finalScore, questions: items, answer: readable, output: readable } }];\n}\nconst result = { success: true, mode: prep.mode, question: prep.question, answer: text, output: text };\nif (prep.mode === 'grade') {\n  result.expectedAnswer = prep.expectedAnswer;\n  result.studentAnswer = prep.studentAnswer;\n  result.totalMarks = prep.totalMarks;\n  const m = text.match(/Score:?[*\\s]*([0-9]+(?:[.][0-9]+)?)\\s*\\/\\s*([0-9]+(?:[.][0-9]+)?)/i);\n  if (m) {\n    const awarded = Number(m[1]);\n    result.marksAwarded = awarded;\n    result.feedback = text;\n    if (awarded > prep.totalMarks) { result.marksAwarded = prep.totalMarks; result.warning = 'Model awarded more than total marks; capped.'; }\n  } else {\n    result.marksAwarded = null;\n    result.feedback = text;\n    result.warning = 'Could not read a Score line from the model response';\n  }\n}\nreturn [{ json: result }];"
+      },
+      "id": "5c1856ac-5d0b-4f92-9a81-f4f97145ec66",
+      "name": "Format Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1248,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "6fb6b595-7309-4912-9706-6c373102f059",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1472,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": false, \"error\": $json.error, \"answer\": \"Error: \" + $json.error } }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "913e8270-3420-43fc-9fec-37ae21283b4d",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        960,
+        352
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get PDF Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get PDF Text": {
+      "main": [
+        [
+          {
+            "node": "Prepare Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Input": {
+      "main": [
+        [
+          {
+            "node": "Is Input Valid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Input Valid": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Format Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Result": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "c49304a2-8897-43d9-8121-fc64db772d89",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2972cbe5a7059a0edab3d551dbdd7e4eee33ace632899a54ca062ae4d119d969"
+  },
+  "nodeGroups": [],
+  "id": "SIhToRn9pgJ9Xnnq",
+  "tags": []
+}

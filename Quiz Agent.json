@@ -1,0 +1,248 @@
+{
+  "name": "Quiz Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "771ee0b8-3bc9-4c5b-90a0-b1b2673875f4",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a7ad4bd1-9f29-454c-912a-cda013bb8cf3",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "771ee0b8-3bc9-4c5b-90a0-b1b2673875f4"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "vncO16jE1X2QCxw7"
+        },
+        "limit": 1,
+        "orderBy": true
+      },
+      "id": "68d98391-ce47-4b84-8755-634ce4070fd8",
+      "name": "Get PDF Text",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        224,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = ($('Webhook').first().json.body) || {};\nconst question = String(body.question || body.prompt || body.message || '').trim();\nif (!question) {\n  return [{ json: { valid: false, error: 'Missing required field: question', prompt: '' } }];\n}\nconst stored = $input.first() ? ($input.first().json || {}) : {};\nconst fromBody = (typeof body.pdfText === 'string') ? body.pdfText.trim() : '';\nconst fromStore = (typeof stored.pdf_text === 'string') ? stored.pdf_text.trim() : '';\nconst pdfText = fromBody || fromStore;\nconst mentionsPdf = /\\b(pdf|uploaded|upload|document|file)\\b/i.test(question) || fromBody !== '';\nif (mentionsPdf) {\n  if (!pdfText) {\n    return [{ json: { valid: false, error: 'No PDF text is available. Please upload a PDF first, then ask for the quiz again.', prompt: '' } }];\n  }\n  const prompt = 'Use ONLY the PDF text below. Do not use outside knowledge.\\n\\nPDF TEXT:\\n' + pdfText + '\\n\\nREQUEST:\\n' + question;\n  return [{ json: { valid: true, usesPdf: true, error: '', prompt } }];\n}\nreturn [{ json: { valid: true, usesPdf: false, error: '', prompt: question } }];"
+      },
+      "id": "7ea7ca91-ef96-4e5a-9d7a-cfaee5de19ae",
+      "name": "Prepare Quiz Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "valid",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "527b4c9b-24a3-4661-919a-649e2e9567ca",
+      "name": "Is Quiz Input Valid",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        672,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "options": {
+          "systemMessage": "You are the Quiz Agent for AI StudyMate.\n\nYour responsibilities are:\n1. Generate multiple-choice questions (MCQs).\n2. Generate practical practice questions.\n3. Generate viva questions.\n4. Prepare users for viva examinations.\n\nUse the topic and study material provided by the user.\nKeep questions clear and beginner-friendly.\nInclude four options for MCQs and identify the correct answer.\nProvide answers and brief explanations when requested.\nDo not invent facts from uploaded study material.\nIf the topic is missing, ask the user to provide one.\n\nIf the input contains a section marked PDF TEXT, you MUST generate everything strictly and only from that text. Never use outside knowledge, never add facts that are not in the PDF text, and never ask the user for the PDF because it is already provided. Generate exactly the number of questions requested. For each multiple-choice question give: the question, four options labelled A, B, C, D, and the correct answer (letter and text)."
+        }
+      },
+      "id": "548c70c0-4d40-4a7d-878d-0e08bfe9a104",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        896,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-20b",
+        "options": {}
+      },
+      "id": "383e3f49-4930-4af8-890d-a934456ae526",
+      "name": "Groq Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        976,
+        224
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "92fseM3ToUvW6yKH",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"answer\": $json.output } }}",
+        "options": {}
+      },
+      "id": "2f7f4a43-ac24-4a64-b334-73601cb26236",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1264,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": false, \"error\": $json.error, \"answer\": \"Error: \" + $json.error } }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "5c20f7ce-901c-4964-9905-4afad61a4d4f",
+      "name": "Respond Quiz Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        960,
+        352
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get PDF Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get PDF Text": {
+      "main": [
+        [
+          {
+            "node": "Prepare Quiz Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Quiz Input": {
+      "main": [
+        [
+          {
+            "node": "Is Quiz Input Valid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Quiz Input Valid": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Quiz Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "8992abb1-9085-44df-9d85-e2f68cccd8d4",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2972cbe5a7059a0edab3d551dbdd7e4eee33ace632899a54ca062ae4d119d969"
+  },
+  "nodeGroups": [],
+  "id": "bWZ1wJuyIfElyDIu",
+  "tags": []
+}
